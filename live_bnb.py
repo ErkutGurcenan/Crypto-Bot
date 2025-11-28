@@ -1,10 +1,11 @@
-# filename: tri_arb_realtime_logger.py
+# Doesn't have the telegram bot feature however successfully prints the arbitrage opputunities to a csv file
 import asyncio
 import csv
 import os
 from datetime import datetime
 from binance import AsyncClient, BinanceSocketManager
 
+# Possible pairs for arbitrage
 PAIRS = [
     {"base": "BTC", "quote": "USDT", "symbol": "BTCUSDT"},
     {"base": "ETH", "quote": "USDT", "symbol": "ETHUSDT"},
@@ -15,14 +16,14 @@ PAIRS = [
 ]
 SYMBOLS = [p["symbol"] for p in PAIRS]
 
-# ---- params ----
+# Parameters
 TAKER_FEE = 0.001                 # 0.10% taker fee per leg
 FEE_FACTOR = (1 - TAKER_FEE) ** 3
 THRESHOLD = -0.001                # print/log when edge > -0.100%
 NOTIONAL_USDT = 1000.0            # for simulated P&L
 CSV_PATH = "arb_opportunities_bnb.csv"
 
-# ---- shared state (latest quotes) ----
+# Current state
 latest = {s: {"bid": None, "ask": None} for s in SYMBOLS}
 
 def ensure_csv_header(path: str):
@@ -43,7 +44,10 @@ def ensure_csv_header(path: str):
                 "BNBETH_bid","BNBETH_ask",
             ])
 
+
+# 
 def append_csv(cycle: str, edge: float):
+    """ Writes the data to csv file """
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     pnl = NOTIONAL_USDT * edge
     row = [
@@ -77,7 +81,7 @@ def tri_edges_all():
         b_bnbb, a_bnbb = latest["BNBBTC"]["bid"], latest["BNBBTC"]["ask"]
         b_bnbe, a_bnbe = latest["BNBETH"]["bid"], latest["BNBETH"]["ask"]
     except KeyError:
-        return None  # symbols not ready yet
+        return None  # Symbols not ready yet
 
     if None in (b_btc, a_btc, b_ethu, a_ethu, b_ethb, a_ethb,
                 b_bnbu, a_bnbu, b_bnbb, a_bnbb, b_bnbe, a_bnbe):
@@ -106,7 +110,7 @@ def tri_edges_all():
     return {"A": edgeA, "B": edgeB, "C": edgeC, "D": edgeD, "E": edgeE, "F": edgeF}
 
 async def consumer(bsm: BinanceSocketManager):
-    """Receive live bookTicker updates."""
+    """ Receive live bookTicker updates """
     streams = [f"{s.lower()}@bookTicker" for s in SYMBOLS]
     async with bsm.multiplex_socket(streams) as stream:
         while True:
@@ -121,8 +125,8 @@ async def consumer(bsm: BinanceSocketManager):
 
 async def opportunity_monitor():
     """
-    Check every 1 ms; print if any cycle edge > THRESHOLD.
-    Log to CSV only on 'crossing' events (from <= THRESHOLD to > THRESHOLD).
+    Check every 1 ms; print if any cycle edge > THRESHOLD
+    Log to CSV only on 'crossing' events (from <= THRESHOLD to > THRESHOLD)
     """
     ensure_csv_header(CSV_PATH)
     was_above = {k: False for k in ["A","B","C","D","E","F"]}
@@ -130,7 +134,7 @@ async def opportunity_monitor():
     while True:
         edges = tri_edges_all()
         if edges is not None:
-            # Which cycles are above threshold?
+            # Checks which cycles are above threshold
             passing = [k for k, v in edges.items() if v > THRESHOLD]
 
             # Print if any cycle passes
@@ -140,7 +144,7 @@ async def opportunity_monitor():
                 status = " | ".join(f"{k}:{edges[k]*100:>7.4f}%" for k in ["A","B","C","D","E","F"])
                 print(f"[{ts}] {status}")
 
-            # CSV logging on *crossing* events only
+            # CSV logging on crossing events only
             for k, v in edges.items():
                 if v > THRESHOLD and not was_above[k]:
                     append_csv(k, v)
@@ -149,7 +153,7 @@ async def opportunity_monitor():
         await asyncio.sleep(0.001)  # 1 ms
 
 async def main():
-    client = await AsyncClient.create()  # public data; no keys required
+    client = await AsyncClient.create()  # Public data
     bsm = BinanceSocketManager(client)
     try:
         await asyncio.gather(consumer(bsm), opportunity_monitor())

@@ -1,4 +1,4 @@
-# filename: tri_arb_realtime_logger.py
+# Prototype for triangular arbitrage bot with telegram bot
 import asyncio
 import csv
 import os
@@ -16,17 +16,17 @@ PAIRS = [
 ]
 SYMBOLS = [p["symbol"] for p in PAIRS]
 
-# ---- params ----
+# Parameters
 TAKER_FEE = 0.001              # 0.10% taker fee per leg
 FEE_FACTOR = (1 - TAKER_FEE) ** 3
-THRESHOLD = -0.001             # trigger when edge > -0.100%
+THRESHOLD = 0.0            # trigger when edge > 0.000%
 NOTIONAL_USDT = 1000.0         # for simulated P&L calc
 CSV_PATH = "arb_opportunities.csv"
 ALERT_COOLDOWN_SECONDS = 15     # per-cycle min gap between Telegram alerts
 
 # Telegram (set env vars before running)
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8446662366:AAGw7iCGCqgWjNPEGFhcJfZ6Um9zYb3_9F8")
-TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "8285457330")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # ---- shared state ----
 latest = {s: {"bid": None, "ask": None} for s in SYMBOLS}
@@ -50,6 +50,7 @@ def ensure_csv_header(path: str):
             ])
 
 def append_csv(cycle: str, edge: float):
+    """ Writes the data to csv file """
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     pnl = NOTIONAL_USDT * edge
     row = [
@@ -65,7 +66,7 @@ def append_csv(cycle: str, edge: float):
         csv.writer(f).writerow(row)
 
 def tri_edges_all():
-    """Return dict of fee-adjusted edges for cycles A..F, or None if missing data."""
+    """ Return dict of fee-adjusted edges for cycles A..F, or None if missing data """
     try:
         b_btc, a_btc   = latest["BTCUSDT"]["bid"], latest["BTCUSDT"]["ask"]
         b_ethu, a_ethu = latest["ETHUSDT"]["bid"], latest["ETHUSDT"]["ask"]
@@ -103,7 +104,7 @@ def tri_edges_all():
     return {"A": edgeA, "B": edgeB, "C": edgeC, "D": edgeD, "E": edgeE, "F": edgeF}
 
 async def send_telegram(session: aiohttp.ClientSession, text: str):
-    """Send a Telegram message if token/chat are configured."""
+    """ Send a Telegram message if token/chat are configured """
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -123,7 +124,7 @@ async def send_telegram(session: aiohttp.ClientSession, text: str):
         print(f"Telegram send error: {e}")
 
 async def consumer(bsm: BinanceSocketManager):
-    """Receive live bookTicker updates."""
+    """ Receive live bookTicker updates """
     streams = [f"{s.lower()}@bookTicker" for s in SYMBOLS]
     async with bsm.multiplex_socket(streams) as stream:
         while True:
@@ -138,56 +139,58 @@ async def consumer(bsm: BinanceSocketManager):
 
 async def opportunity_monitor():
     """
-    Check every 1 ms; print if any cycle edge > THRESHOLD.
-    Log + Telegram only on *crossing* events, with per-cycle cooldown.
+    Checks every millisecond for arbitrage opportunities
+    Sends Telegram message immediately when an opportunity occurs
+    Enforces a global cooldown of 1 second between alerts
     """
     ensure_csv_header(CSV_PATH)
-    was_above = {k: False for k in ["A","B","C","D","E","F"]}
-    next_allowed_alert = {k: datetime.min for k in was_above}
+    last_alert_time = datetime.min  # Last Telegram message sent
 
     async with aiohttp.ClientSession() as session:
         while True:
             edges = tri_edges_all()
             if edges is not None:
-                passing = [k for k, v in edges.items() if v > THRESHOLD]
+                now = datetime.now()
+                # Checks which cycles are above threshold
+                passing = [(k, v) for k, v in edges.items() if v > THRESHOLD]
 
-                # Compact console snapshot when anything passes
+                # Print if any cycle passes
                 if passing:
-                    ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                    status = " | ".join(f"{k}:{edges[k]*100:>7.4f}%" for k in ["A","B","C","D","E","F"])
+                    ts = now.strftime("%H:%M:%S.%f")[:-3]
+                    status = " | ".join(f"{k}:{edges[k]*100:>7.4f}%" for k in edges.keys())
                     print(f"[{ts}] {status}")
 
-                # On crossing events: CSV + Telegram (respect cooldown)
-                now = datetime.now()
-                for k, v in edges.items():
-                    crossing = (v > THRESHOLD and not was_above[k])
-                    if crossing:
-                        append_csv(k, v)
+                # If any opportunity and cooldown elapsed
+                if passing and (now - last_alert_time).total_seconds() >= 1.0:
+                    # Pick the best cycle (highest edge)
+                    best_cycle, best_edge = max(passing, key=lambda x: x[1])
+                    pnl = NOTIONAL_USDT * best_edge
+                    pct = best_edge * 100
 
-                        if now >= next_allowed_alert[k]:
-                            # Build a short, useful Telegram message
-                            pct = v * 100.0
-                            pnl = NOTIONAL_USDT * v
-                            msg = (
-                                f"*Arb Opportunity*  Cycle *{k}*\n"
-                                f"Edge: *{pct:.3f}%*   (sim P&L on ${NOTIONAL_USDT:.0f}: {pnl:.2f} USDT)\n"
-                                f"Threshold: {THRESHOLD*100:.3f}%   Fees per leg: {TAKER_FEE*100:.2f}%\n"
-                                f"`BTCUSDT` {latest['BTCUSDT']['bid']:.2f}/{latest['BTCUSDT']['ask']:.2f} | "
-                                f"`ETHUSDT` {latest['ETHUSDT']['bid']:.2f}/{latest['ETHUSDT']['ask']:.2f} | "
-                                f"`ETHBTC` {latest['ETHBTC']['bid']:.8f}/{latest['ETHBTC']['ask']:.8f}\n"
-                                f"`BNBUSDT` {latest['BNBUSDT']['bid']:.2f}/{latest['BNBUSDT']['ask']:.2f} | "
-                                f"`BNBBTC` {latest['BNBBTC']['bid']:.8f}/{latest['BNBBTC']['ask']:.8f} | "
-                                f"`BNBETH` {latest['BNBETH']['bid']:.8f}/{latest['BNBETH']['ask']:.8f}"
-                            )
-                            await send_telegram(session, msg)
-                            next_allowed_alert[k] = now + timedelta(seconds=ALERT_COOLDOWN_SECONDS)
+                    # Log to CSV
+                    append_csv(best_cycle, best_edge)
 
-                    was_above[k] = (v > THRESHOLD)
+                    # Prepare Telegram message
+                    text = (
+                        f"*Arb Opportunity*  Cycle *{best_cycle}*\n"
+                        f"Edge: *{pct:.3f}%*   (sim P&L on ${NOTIONAL_USDT:.0f}: {pnl:.2f} USDT)\n"
+                        f"Threshold: {THRESHOLD*100:.3f}%   Fees/leg: {TAKER_FEE*100:.2f}%\n"
+                        f"`BTCUSDT` {latest['BTCUSDT']['bid']:.2f}/{latest['BTCUSDT']['ask']:.2f} | "
+                        f"`ETHUSDT` {latest['ETHUSDT']['bid']:.2f}/{latest['ETHUSDT']['ask']:.2f} | "
+                        f"`ETHBTC` {latest['ETHBTC']['bid']:.8f}/{latest['ETHBTC']['ask']:.8f}\n"
+                        f"`BNBUSDT` {latest['BNBUSDT']['bid']:.2f}/{latest['BNBUSDT']['ask']:.2f} | "
+                        f"`BNBBTC` {latest['BNBBTC']['bid']:.8f}/{latest['BNBBTC']['ask']:.8f} | "
+                        f"`BNBETH` {latest['BNBETH']['bid']:.8f}/{latest['BNBETH']['ask']:.8f}"
+                    )
 
-            await asyncio.sleep(0.001)  # 1 ms
+                    # Send Telegram message
+                    await send_telegram(session, text)
+                    last_alert_time = now
+
+            await asyncio.sleep(0.001)  # 1 ms check loop
 
 async def main():
-    client = await AsyncClient.create()  # public data; no keys required
+    client = await AsyncClient.create()  # Public data
     bsm = BinanceSocketManager(client)
     try:
         await asyncio.gather(consumer(bsm), opportunity_monitor())
