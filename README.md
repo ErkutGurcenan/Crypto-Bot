@@ -68,3 +68,20 @@ A Telegram Bot Token
 
 Your Telegram Chat ID
 
+
+How To Run:
+
+1. Clone the repo:
+git clone https://github.com/ErkutGurcenan/Crypto-Bot.git
+cd Crypto-Bot
+
+2. Install dependencies:
+pip install -r requirements.txt
+
+3. Add Telegram credentials:
+Open live_bnb.py file and update:
+TELEGRAM_BOT_TOKEN = "YOUR_TOKEN"
+TELEGRAM_CHAT_ID = "YOUR_CHAT_ID"
+
+4. Run the bot:
+python3 live_bnb.py
