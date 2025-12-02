@@ -1,1 +1,2 @@
 pip install binance-connector
+pip install python-telegram-bot
