@@ -1,14 +1,12 @@
-🔄 Crypto Triangular Arbitrage Bot (Prototype)
-
-
+Crypto Triangular Arbitrage Bot (Prototype)
 
 
 
 
 A prototype triangular arbitrage detection bot built for learning, experimentation, and real-time market monitoring.
-⚠️ This bot does NOT execute trades — it only detects potential arbitrage opportunities and sends Telegram alerts.
+This bot does NOT execute trades — it only detects potential arbitrage opportunities and sends Telegram alerts.
 
-📌 Overview
+Overview:
 
 This bot continuously monitors selected crypto trading pairs to identify triangular arbitrage opportunities. When a potential opportunity appears, the bot automatically sends a message through a Telegram Bot.
 
@@ -22,7 +20,7 @@ BNB
 
 More coins can be added easily.
 
-🚀 Features
+Features:
 
 Real-time triangular arbitrage detection
 
@@ -38,13 +36,13 @@ Fully asynchronous for improved performance
 
 Safe to test — no trading actions performed
 
-⚠️ Disclaimer
+Disclaimer:
 
 This project is a prototype for educational purposes.
 It does not place orders, execute trades, or interact with user finances in any form.
 Do not use this code for live trading without proper risk management and exchange compliance.
 
-🧰 Technologies Used
+Technologies Used:
 
 Python 3.10+
 
@@ -54,7 +52,7 @@ asyncio
 
 python-telegram-bot
 
-📩 Telegram Integration
+Telegram Integration:
 
 The bot sends:
 
@@ -69,3 +67,21 @@ You'll need:
 A Telegram Bot Token
 
 Your Telegram Chat ID
+
+
+How To Run:
+
+1. Clone the repo:
+git clone https://github.com/ErkutGurcenan/Crypto-Bot.git
+cd Crypto-Bot
+
+2. Install dependencies:
+pip install -r requirements.txt
+
+3. Add Telegram credentials:
+Open live_bnb.py file and update:
+TELEGRAM_BOT_TOKEN = "YOUR_TOKEN"
+TELEGRAM_CHAT_ID = "YOUR_CHAT_ID"
+
+4. Run the bot:
+python3 live_bnb.py
