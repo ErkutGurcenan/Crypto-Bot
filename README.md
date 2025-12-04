@@ -2,6 +2,7 @@
 
 
 
+
 A prototype triangular arbitrage detection bot built for learning, experimentation, and real-time market monitoring.
 This bot does NOT execute trades :warning: it only detects potential arbitrage opportunities and sends Telegram alerts.
 
