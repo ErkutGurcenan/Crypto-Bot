@@ -5,11 +5,15 @@
 
 
 A prototype triangular arbitrage detection bot built for learning, experimentation, and real-time market monitoring.
-:warning: This bot does not execute trades. It only detects potential arbitrage opportunities and sends Telegram alerts.
+This bot does not execute trades :warning: It only detects potential arbitrage opportunities and sends Telegram alerts.
+
+
 
 ## Overview
 
 This bot continuously monitors selected crypto trading pairs to identify triangular arbitrage opportunities. When a potential opportunity appears, the bot automatically sends a message through a Telegram Bot.
+
+
 
 ### The bot checks the following coins
 
@@ -21,6 +25,8 @@ This bot continuously monitors selected crypto trading pairs to identify triangu
 
 > [!NOTE]
 > More coins can be added easily.
+
+
 
 ## Features
 
@@ -36,7 +42,9 @@ This bot continuously monitors selected crypto trading pairs to identify triangu
 
 * Fully asynchronous for improved performance
 
-* Safe to test — no trading actions performed
+* Safe to test, no trading actions performed
+
+
 
 ## Disclaimer
 
@@ -44,6 +52,8 @@ This bot continuously monitors selected crypto trading pairs to identify triangu
 > This project is a prototype for educational purposes.
 > It does not place orders, execute trades, or interact with user finances in any form.
 > Do not use this code for live trading without proper risk management and exchange compliance.
+
+
 
 ## Technologies Used
 
@@ -54,6 +64,7 @@ This bot continuously monitors selected crypto trading pairs to identify triangu
 * asyncio
 
 * python-telegram-bot
+
 
 
 ## Telegram Integration
@@ -71,6 +82,7 @@ This bot continuously monitors selected crypto trading pairs to identify triangu
 * A Telegram Bot Token
 
 * Telegram Chat ID
+
 
 
 ## How To Run
