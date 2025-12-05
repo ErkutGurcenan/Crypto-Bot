@@ -5,7 +5,7 @@
 
 
 A prototype triangular arbitrage detection bot built for learning, experimentation, and real-time market monitoring.
-This bot does not execute trades :warning: It only detects potential arbitrage opportunities and sends Telegram alerts.
+This bot does not execute trades. It only detects potential arbitrage opportunities and sends Telegram alerts.
 
 
 
@@ -109,3 +109,4 @@ TELEGRAM_CHAT_ID = "YOUR_CHAT_ID"
 ```
 python3 live_bnb.py
 ```
+
