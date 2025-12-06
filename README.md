@@ -77,6 +77,15 @@ This bot continuously monitors selected crypto trading pairs to identify triangu
 
 * Optional hourly summaries
 
+
+> [!NOTE]
+> Arb Opportunity - Cycle B
+> Edge: 0.882%  (sim P&L on $1000: 8.82 USDT)
+> Threshold: 0.000%   Fees per leg: 0.10%
+> BTCUSDT 115359.31/115359.32 | ETHUSDT 4216.02/4216.03 | ETHBTC 0.03698000/0.03699000
+> BNBUSDT 1147.50/1147.51 | BNBBTC 0.00994600/0.00994700 | BNBETH 0.27210000/0.27220000
+
+
 ### You will need
 
 * A Telegram Bot Token
