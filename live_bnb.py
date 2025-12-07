@@ -25,6 +25,8 @@ FEE_FACTOR = (1 - TAKER_FEE) ** 3
 THRESHOLD = -0.001                # print/log when edge > -0.100%
 NOTIONAL_USDT = 1000.0            # for simulated P&L
 CSV_PATH = "arb_opportunities_bnb.csv"
+LATENCY_CSV_PATH = "latency_log.csv"
+
 
 # Current state
 latest = {s: {"bid": None, "ask": None} for s in SYMBOLS}
@@ -46,6 +48,15 @@ def ensure_csv_header(path: str):
                 "BNBBTC_bid","BNBBTC_ask",
                 "BNBETH_bid","BNBETH_ask",
             ])
+            
+            
+
+def ensure_latency_header(path: str):
+    if not os.path.exists(path):
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["timestamp_utc", "symbol", "latency_ms"])
+
 
 
 # 
@@ -156,20 +167,21 @@ async def consumer(bsm: BinanceSocketManager):
                     
                     
                     
-async def latency_monitor():
-    """ Prints latency every minute """
+async def latency_logger():
+    """ Append latency to CSV once per second """
+    ensure_latency_header(LATENCY_CSV_PATH)
+
     while True:
+        ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         lat = latest_latency.get("BTCUSDT")
 
-        ts = datetime.now().strftime("%H:%M:%S")
+        if lat is not None:
+            with open(LATENCY_CSV_PATH, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([ts, "BTCUSDT", f"{lat:.3f}"])
 
-        if lat is None:
-            print(f"[{ts}] Latency: waiting for miniTicker…") # First print action
-        else:
-            print(f"[{ts}] Latency (BTCUSDT): {lat:.1f} ms")
-
-        await asyncio.sleep(60)   # once per minute
-
+        # Prints latency every minute
+        await asyncio.sleep(1)
 
 
 
@@ -209,7 +221,7 @@ async def main():
         await asyncio.gather(
             consumer(bsm),          # bookTicker + miniTicker
             opportunity_monitor(),  # arbitrage logic
-            latency_monitor(),      # prints latency every minute
+            latency_logger(),       # Log every second, and prints every minute
         )
     finally:
         await client.close_connection()
