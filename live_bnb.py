@@ -2,8 +2,11 @@
 import asyncio
 import csv
 import os
+import time
 from datetime import datetime
 from binance import AsyncClient, BinanceSocketManager
+
+latest_latency = {"BTCUSDT": None} # Measure latency only for BTC
 
 # Possible pairs for arbitrage
 PAIRS = [
@@ -110,18 +113,65 @@ def tri_edges_all():
     return {"A": edgeA, "B": edgeB, "C": edgeC, "D": edgeD, "E": edgeE, "F": edgeF}
 
 async def consumer(bsm: BinanceSocketManager):
-    """ Receive live bookTicker updates """
+    """ Receive live bookTicker updates and miniticker(only for latency) """
+    
+    latency_symbol = "BTCUSDT"  # Symbol to measure latency on
+
     streams = [f"{s.lower()}@bookTicker" for s in SYMBOLS]
+    streams.append(f"{latency_symbol.lower()}@miniTicker")   # This gives event time
+
     async with bsm.multiplex_socket(streams) as stream:
         while True:
             msg = await stream.recv()
+            
+            raw_stream = msg.get("stream", "")
+            stream_name = raw_stream.lower()
             data = msg.get("data", {})
-            if not isinstance(data, dict) or "b" not in data or "a" not in data:
-                continue
-            sym = data.get("s")
-            if sym in SYMBOLS:
-                latest[sym]["bid"] = float(data["b"])
-                latest[sym]["ask"] = float(data["a"])
+
+
+            # BookTicker handler (Original logic)
+            if stream_name.endswith("@bookticker"):
+                if not isinstance(data, dict) or "b" not in data or "a" not in data:
+                    continue
+
+                sym = data.get("s")
+                if sym in SYMBOLS:
+                    latest[sym]["bid"] = float(data["b"])
+                    latest[sym]["ask"] = float(data["a"])
+
+
+            # MiniTicker handler (For Latency only)
+            elif stream_name.endswith("@miniticker"):
+                sym = data.get("s")
+
+                if sym == latency_symbol and "E" in data:
+                    event_ms = float(data["E"])             # Binance event time (ms)
+                    recv_ms  = time.time() * 1000.0         # When received it
+
+                    latency = recv_ms - event_ms            # Simple latency calculation
+
+                    latest_latency[sym] = latency           # Store the latency
+                    
+                    
+                    
+                    
+                    
+async def latency_monitor():
+    """ Prints latency every minute """
+    while True:
+        lat = latest_latency.get("BTCUSDT")
+
+        ts = datetime.now().strftime("%H:%M:%S")
+
+        if lat is None:
+            print(f"[{ts}] Latency: waiting for miniTicker…") # First print action
+        else:
+            print(f"[{ts}] Latency (BTCUSDT): {lat:.1f} ms")
+
+        await asyncio.sleep(60)   # once per minute
+
+
+
 
 async def opportunity_monitor():
     """
@@ -153,12 +203,17 @@ async def opportunity_monitor():
         await asyncio.sleep(0.001)  # 1 ms
 
 async def main():
-    client = await AsyncClient.create()  # Public data
+    client = await AsyncClient.create()  # Public data; no keys required
     bsm = BinanceSocketManager(client)
     try:
-        await asyncio.gather(consumer(bsm), opportunity_monitor())
+        await asyncio.gather(
+            consumer(bsm),          # bookTicker + miniTicker
+            opportunity_monitor(),  # arbitrage logic
+            latency_monitor(),      # prints latency every minute
+        )
     finally:
         await client.close_connection()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
