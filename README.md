@@ -94,6 +94,21 @@ This bot continuously monitors selected crypto trading pairs to identify triangu
 
 
 
+## Latency Monitoring
+
+The bot includes an in-progress latency monitoring feature to track Binance WebSocket performance.
+
+* Latency is estimated using miniTicker event timestamps.
+* Measurements are recorded once per second.
+* Data is written to a daily CSV file, allowing comparison of latency across different hours of the day.
+* This helps analyse network conditions and relate latency to arbitrage performance.
+
+
+> [!NOTE]
+> This feature is under active development.
+
+
+
 ## How To Run
 
 ### 1. Clone the repo
