@@ -180,7 +180,6 @@ async def latency_logger():
                 writer = csv.writer(f)
                 writer.writerow([ts, "BTCUSDT", f"{lat:.3f}"])
 
-        # Prints latency every minute
         await asyncio.sleep(1)
 
 
