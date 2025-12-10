@@ -3,6 +3,7 @@ import asyncio
 import csv
 import os
 import time
+import aiohttp
 from datetime import datetime
 from binance import AsyncClient, BinanceSocketManager
 
@@ -26,6 +27,11 @@ THRESHOLD = -0.001                # print/log when edge > -0.100%
 NOTIONAL_USDT = 1000.0            # for simulated P&L
 CSV_PATH = "arb_opportunities_bnb.csv"
 LATENCY_CSV_PATH = "latency_log.csv"
+
+
+# Telegram (set env vars before running)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 
 # Current state
@@ -122,6 +128,30 @@ def tri_edges_all():
     edgeF = gross_F * ff - 1.0
 
     return {"A": edgeA, "B": edgeB, "C": edgeC, "D": edgeD, "E": edgeE, "F": edgeF}
+
+
+
+async def send_telegram(session: aiohttp.ClientSession, text: str):
+    """ Send a Telegram message if token/chat are configured """
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "disable_web_page_preview": True,
+        "parse_mode": "Markdown"
+    }
+    try:
+        async with session.post(url, data=payload, timeout=10) as resp:
+            # Optional: raise on non-200 to see errors
+            if resp.status != 200:
+                body = await resp.text()
+                print(f"Telegram send failed [{resp.status}]: {body}")
+    except Exception as e:
+        print(f"Telegram send error: {e}")
+
+
 
 async def consumer(bsm: BinanceSocketManager):
     """ Receive live bookTicker updates and miniticker(only for latency) """
