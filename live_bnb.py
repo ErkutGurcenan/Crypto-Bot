@@ -1,5 +1,5 @@
 # Doesn't have the telegram bot feature however successfully prints the arbitrage opputunities to a csv file
-# Working on Telegram feature will be added soon.
+# Working on Telegram feature will be added soon
 import asyncio
 import csv
 import os
